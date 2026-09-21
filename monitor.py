@@ -13,6 +13,7 @@ L'état est conservé dans state.json pour éviter une alerte toutes les heures.
 Usage : python monitor.py [--dry-run] [--test-notif]
 """
 import json
+import math
 import os
 import random
 import re
@@ -42,9 +43,24 @@ TG_CHAT = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 NOTIFY_BLOCKED = os.getenv("NOTIFY_BLOCKED", "0") == "1"  # alerte si un site reste bloqué trop longtemps
 BLOCKED_ALERT_HOURS = float(os.getenv("BLOCKED_ALERT_HOURS", "24"))
 
+# Plafond de prix : au-delà de référence x (1 + tolérance), pas d'alerte (statut TROP_CHER)
+PRICE_TOLERANCE = float(os.getenv("PRICE_TOLERANCE", "0.20"))
+# Prix de référence = prix le plus courant constaté dans les grandes enseignes. Clé = mot présent dans le libellé.
+REFERENCE_PRICES = {
+    "dresseur": 64.99,      # Coffret Dresseur d'Élite  -> plafond 77,99 €
+    "poster": 29.99,        # Coffret Poster            -> plafond 35,99 €
+    "nymphali": 29.99,      # Coffret Nymphali ex       -> plafond 35,99 €
+    "amphinobi": 29.99,     # Coffret Amphinobi ex      -> plafond 35,99 €
+    "2 boosters": 14.99,    # Pack 2 boosters (Évoli)   -> plafond 17,99 €
+    "tin box": 26.99,       # Tin box                   -> plafond 32,39 €
+    "196214145153": 45.99,  # Collection                -> plafond 55,19 €
+}
+
 # Espacement des visites (anti-bot)
-PAUSE_MIN = float(os.getenv("PAUSE_MIN", "4"))      # secondes entre deux requêtes
-PAUSE_MAX = float(os.getenv("PAUSE_MAX", "7"))
+RUN_INTERVAL_MIN = float(os.getenv("RUN_INTERVAL_MIN", "5"))        # fréquence des passages (veille.yml)
+TARGET_INTERVAL_MIN = float(os.getenv("TARGET_INTERVAL_MIN", "7.5"))  # fréquence visée pour chaque page
+PAUSE_MIN = float(os.getenv("PAUSE_MIN", "2"))      # bornes de la pause entre deux requêtes (secondes) ;
+PAUSE_MAX = float(os.getenv("PAUSE_MAX", "10"))     # la pause réelle est calculée pour étaler les visites sur le passage
 MIN_SITE_GAP = float(os.getenv("MIN_SITE_GAP", "30"))  # secondes minimum entre deux visites du même site
 TIME_BUDGET = float(os.getenv("TIME_BUDGET", "240"))  # au-delà, les pages restantes passent au tour suivant
 BACKOFF_MAX_MIN = 60                                  # page bloquée : 5, 10, 20, 40 puis 60 min entre deux essais
@@ -69,7 +85,7 @@ if not FETCH_KW:
     )
 
 AVAILABLE = {"DISPO", "PRECOMMANDE"}
-KNOWN = {"DISPO", "PRECOMMANDE", "INDISPO"}
+KNOWN = {"DISPO", "PRECOMMANDE", "INDISPO", "TROP_CHER"}
 
 SCHEMA_MAP = {
     "instock": "DISPO",
@@ -118,6 +134,14 @@ def label_for(url):
     segs = [s for s in urlparse(url).path.split("/") if s]
     best = max(segs, key=len) if segs else url
     return re.sub(r"\.html?$", "", best)[:70]
+
+
+def price_cap(label):
+    low = label.lower()
+    for key, ref in REFERENCE_PRICES.items():
+        if key in low:
+            return round(ref * (1 + PRICE_TOLERANCE), 2)
+    return None
 
 
 def load_urls():
@@ -362,7 +386,7 @@ def notify(title, message, url, cart_url=None):
 
 
 # ---------------------------------------------------------------- boucle
-def interleave(items):
+def interleave(items, state=None):
     """Répartit chaque enseigne régulièrement sur tout le tour, dans un ordre aléatoire.
     items : liste de (position, (url, libellé, lien panier))."""
     groups = {}
@@ -371,6 +395,8 @@ def interleave(items):
     keyed = []
     for g in groups.values():
         random.shuffle(g)
+        if state:  # les pages vérifiées depuis le plus longtemps passent en premier
+            g.sort(key=lambda e: state.get(e[1][0], {}).get("checked", ""))
         offset = random.random()
         for k, entry in enumerate(g):
             keyed.append(((k + offset) / len(g), random.random(), entry))
@@ -394,7 +420,15 @@ def main():
         (due if state.get(item[0], {}).get("next_check", 0) <= now else later).append((pos, item))
     print(f"Veille — {len(due)} pages à vérifier, {len(later)} en pause anti-bot — {now_iso()}")
 
-    order = interleave(due)
+    # Rotation : chaque passage (toutes les 5 min) prend les 2/3 des pages, les plus anciennes d'abord,
+    # soit une vérification toutes les 5 ou 10 min en alternance : 7,5 min en moyenne par page.
+    due.sort(key=lambda e: state.get(e[1][0], {}).get("checked", ""))
+    quota = math.ceil(len(due) * RUN_INTERVAL_MIN / TARGET_INTERVAL_MIN)
+    selected = due[:quota]
+    print(f"  Rotation : {len(selected)} pages ce passage (objectif : chaque page toutes les {TARGET_INTERVAL_MIN:g} min)")
+    order = interleave(selected, state)
+    # Pause calculée pour étaler les requêtes régulièrement sur ~90 % du budget de temps
+    slot = TIME_BUDGET * 0.9 / max(len(order), 1)
     start = time.monotonic()
     visited = set()
     last_visit = {}
@@ -406,13 +440,19 @@ def main():
             print(f"  Budget de {TIME_BUDGET:.0f} s atteint : {len(order) - i} pages reportées au tour suivant")
             break
         last_visit[retailer(url)] = time.monotonic()
+        t_req = time.monotonic()
         status, source, price, cart_found = check(url)
+        took = time.monotonic() - t_req
         visited.add(url)
         cart_url = cart_manual or cart_found or template_cart_link(url)
         cart_src = "manuel" if cart_manual else "détecté" if cart_found else "modèle" if cart_url else ""
         shop = retailer(url)
         prev = state.get(url, {})
         last_known = prev.get("last_known")
+
+        cap = price_cap(label)
+        if status in AVAILABLE and cap and price and price > cap:
+            status, source = "TROP_CHER", f"{source} — plafond {cap:.2f} €"
 
         if status in KNOWN:
             if status in AVAILABLE and last_known not in AVAILABLE:
@@ -443,7 +483,8 @@ def main():
         print(f"  {status:<12} {shop:<14} {label}  [{source}]" + (f"  {price:.2f} €" if price else "") + (f"  panier:{cart_src}" if cart_src else ""))
 
         if i < len(order) - 1:
-            time.sleep(random.uniform(PAUSE_MIN, PAUSE_MAX))
+            pause = max(PAUSE_MIN, min(PAUSE_MAX, slot - took)) * random.uniform(0.8, 1.2)
+            time.sleep(pause)
 
     # Pages non visitées ce tour-ci : on reprend leur dernier état pour le récapitulatif
     for pos, (url, label, _) in enumerate(urls):
@@ -452,7 +493,7 @@ def main():
         prev = state.get(url, {})
         nc = prev.get("next_check", 0)
         why = (f"en pause jusqu'à {datetime.fromtimestamp(nc, timezone.utc).strftime('%H:%M')} UTC"
-               if nc > now else "reportée (budget de temps)")
+               if nc > now else f"au prochain passage (rotation {TARGET_INTERVAL_MIN:g} min)")
         rows.append((pos, retailer(url), label, prev.get("status", "—"), why, None, "", url, prev.get("cart")))
 
     # purge des URL retirées de urls.txt
