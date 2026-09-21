@@ -1,4 +1,6 @@
-# Format : URL | libellé (libellé facultatif). Lignes # ignorées. Doublons ignorés.
+# Format : URL | libellé | lien panier
+# Libellé et lien panier facultatifs. Lignes # ignorées. Doublons ignorés.
+# Lien panier : s'il est absent, le script cherche un lien dans la page, puis un modèle par enseigne.
 
 # --- Fnac
 https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Poster/a23200285/w-4 | Coffret Poster
@@ -16,6 +18,7 @@ https://www.carrefour.fr/p/coffret-pokemon-nymphali-ex-30e-anniversaire-pokemon-
 https://www.carrefour.fr/p/coffret-pokemon-amphinobi-ex-30e-anniversaire-pokemon-0196214147164 | Coffret Amphinobi ex
 https://www.carrefour.fr/p/pack-de-2-boosters-pokemon-30e-anniversaire-pokemon-0196214152311 | Pack 2 boosters
 https://www.carrefour.fr/p/coffret-pokemon-collection-poster-30e-anniversaire-pokemon-0196214147225 | Coffret Poster
+https://www.carrefour.fr/p/cartes-a-jouer-et-a-collectionner-coffret-dresseur-d-elite-30e-anniversaire-pokemon-0196214144835 | Coffret Dresseur d'Élite
 
 # --- JouéClub
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-4-boosters-amphinobi-ex-0196214147164.html | Coffret Amphinobi ex
@@ -39,6 +42,14 @@ https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-c
 https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-dresseur-delite-30eme-anniversaire/p/261821 | Coffret Dresseur d'Élite
 https://www.smythstoys.com/fr/fr-fr/marques/pokemon/pokemon-bundle-6-boosters-30eme-anniversaire/p/261769 | Bundle 6 boosters
 https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-portfolio-avec-boosters-modele-aleatoire/p/261831 | Portfolio avec boosters
+
+# --- Coursesu
+https://www.coursesu.com/p/coffret-ex-pokemon-asmodee/1833139.html | Coffret ex (réf. 1833139)
+https://www.coursesu.com/p/coffret-poster-asmodee/1833238.html | Coffret Poster
+https://www.coursesu.com/p/coffret-ex-pokemon-asmodee/1833056.html | Coffret ex (réf. 1833056)
+https://www.coursesu.com/p/coffret-dresseur-asmodee/1833259.html | Coffret Dresseur d'Élite
+https://www.coursesu.com/p/portfolio-5-boosters-asmodee/1833277.html | Portfolio 5 boosters
+https://www.coursesu.com/p/pack-booster-x2-asmodee/1833297.html | Pack 2 boosters
 
 # --- 1001hobbies
 https://www.1001hobbies.fr/jeux-de-cartes-a-jouer/892556-pokemon-company-bm-258856-pokemon-30eme-anniversaire-2pack-promo--196214152311.html | Pack 2 boosters promo
