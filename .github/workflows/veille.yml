@@ -22,8 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+        with:
+          ref: main            # toujours la dernière version, pas celle du déclenchement
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -42,5 +44,11 @@ jobs:
           git config user.name "veille-bot"
           git config user.email "veille-bot@users.noreply.github.com"
           git add state.json
-          git diff --cached --quiet || git commit -m "état $(date -u +%FT%H:%MZ)"
-          git push
+          git diff --cached --quiet && exit 0
+          git commit -m "état $(date -u +%FT%H:%MZ)"
+          # Si un autre passage a enregistré entre-temps : on se remet à jour, notre état (plus récent) l'emporte
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push && exit 0
+            sleep 5
+          done
+          exit 1
