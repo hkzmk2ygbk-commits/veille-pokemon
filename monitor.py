@@ -88,8 +88,13 @@ NEG_CONTEXT = re.compile(r"\b(non|pas|plus|bient[oô]t|prochainement)\b", re.I)
 NEGATIVE_PHRASES = (
     "rupture de stock", "épuisé", "epuise", "indisponible", "hors stock",
     "m'alerter", "me prévenir", "être alerté", "victime de son succès", "plus en stock",
+    "bientôt disponible", "bientot disponible", "prochainement disponible",
 )
-ADD_TO_CART = ("ajouter au panier", "ajout au panier", "acheter maintenant")
+ADD_TO_CART = ("ajouter au panier", "ajouter à mon panier", "ajout au panier", "acheter maintenant")
+# Phrases génériques des gabarits de page, sans rapport avec le stock : retirées avant analyse
+IGNORE_RE = re.compile(
+    r"(une taille et une couleur disponibles?|(tailles?|couleurs?|coloris|options?|créneaux?) disponibles?"
+    r"|(retrait|livraison|drive|paiement)s? disponibles?)", re.I)
 
 
 # ---------------------------------------------------------------- utilitaires
@@ -244,21 +249,44 @@ def text_signal(soup):
         t.decompose()
     root = soup.find("main") or soup.body or soup
     text = re.sub(r"\s+", " ", root.get_text(" ")).lower().replace("’", "'")
+    text = IGNORE_RE.sub(" ", text)
     hits = clean_dispo_hits(text)
     cart = any(p in text for p in ADD_TO_CART)
-    neg = any(p in text for p in NEGATIVE_PHRASES)
+    neg = [p for p in NEGATIVE_PHRASES if p in text]
     extrait = f"texte : …{hits[0]}…" if hits else "texte"
-    if neg and not cart:
-        return "INDISPO", "texte"
-    # Sans bouton panier, « disponible » seul ne suffit plus (ex. « disponible en drive »)
+    # Une mention de rupture l'emporte : certains sites affichent le bouton panier même en rupture
+    if neg:
+        return "INDISPO", f"texte : « {neg[0]} »"
+    # Sans bouton panier, « disponible » seul ne suffit pas (ex. « disponible en drive »)
     if hits and cart:
         return "DISPO", extrait
     return "INCONNU", extrait
 
 
+def coursesu_signal(soup):
+    """Coursesu : bouton panier toujours affiché, prix masqué sans magasin choisi.
+    Seul signal fiable : la mention « Bientôt disponible » (ou « indisponible »)."""
+    text = re.sub(r"\s+", " ", soup.get_text(" ")).lower()
+    for p in ("bientôt disponible", "indisponible", "rupture de stock", "épuisé"):
+        if p in text:
+            return "INDISPO", f"coursesu : « {p} »"
+    if "ajouter à mon panier" in text or "ajouter au panier" in text:
+        return "DISPO", "coursesu : « bientôt disponible » a disparu (stock variable selon magasin)"
+    return "INCONNU", "coursesu"
+
+
+RETAILER_RULES = {"coursesu": coursesu_signal}
+
+
 def analyze(html, base_url=""):
     soup = BeautifulSoup(html, "html.parser")
     cart = find_cart_link(soup, base_url)
+    rule = RETAILER_RULES.get(retailer(base_url)) if base_url else None
+    if rule:
+        for t in soup(["script", "style", "noscript", "template", "svg"]):
+            t.decompose()
+        status, source = rule(soup)
+        return status, source, None, cart
     signals, prices = structured_signals(soup)
     price = min(prices) if prices else None
     if signals:
