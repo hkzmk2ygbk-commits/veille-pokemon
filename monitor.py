@@ -355,6 +355,23 @@ def notify(title, message, url, cart_url=None):
 
 
 # ---------------------------------------------------------------- boucle
+def interleave(urls):
+    """Mélange l'ordre et alterne les enseignes pour éviter les rafales sur un même site."""
+    groups = {}
+    for pos, item in enumerate(urls):
+        groups.setdefault(retailer(item[0]), []).append((pos, item))
+    queues = list(groups.values())
+    for q in queues:
+        random.shuffle(q)
+    random.shuffle(queues)
+    order = []
+    while any(queues):
+        for q in queues:
+            if q:
+                order.append(q.pop())
+    return order
+
+
 def main():
     urls = load_urls()
     if TEST_NOTIF:
@@ -367,7 +384,8 @@ def main():
     rows = []
     print(f"Veille — {len(urls)} pages — {now_iso()}")
 
-    for i, (url, label, cart_manual) in enumerate(urls):
+    order = interleave(urls)
+    for i, (pos, (url, label, cart_manual)) in enumerate(order):
         status, source, price, cart_found = check(url)
         cart_url = cart_manual or cart_found or template_cart_link(url)
         cart_src = "manuel" if cart_manual else "détecté" if cart_found else "modèle" if cart_url else ""
@@ -390,10 +408,10 @@ def main():
             "label": label, "status": status, "source": source, "price": price, "cart": cart_url,
             "last_known": last_known, "blocked_streak": blocked_streak, "checked": now_iso(),
         }
-        rows.append((shop, label, status, source, price, cart_src))
+        rows.append((pos, shop, label, status, source, price, cart_src))
         print(f"  {status:<12} {shop:<14} {label}  [{source}]" + (f"  {price:.2f} €" if price else "") + (f"  panier:{cart_src}" if cart_src else ""))
 
-        if i < len(urls) - 1:
+        if i < len(order) - 1:
             time.sleep(random.uniform(1.5, 3.5))
 
     # purge des URL retirées de urls.txt
@@ -405,7 +423,7 @@ def main():
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
             f.write(f"### Veille stock — {now_iso()}\n\n| Statut | Enseigne | Produit | Source | Prix | Lien panier |\n|---|---|---|---|---|---|\n")
-            for shop, label, status, source, price, cart_src in rows:
+            for _, shop, label, status, source, price, cart_src in sorted(rows):
                 src = str(source).replace("|", "/")
                 f.write(f"| {status} | {shop} | {label} | {src} | {f'{price:.2f} €' if price else ''} | {cart_src} |\n")
 
