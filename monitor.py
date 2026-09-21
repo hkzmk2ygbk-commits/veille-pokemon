@@ -10,7 +10,7 @@ Pour chaque URL de urls.txt :
   4. notifie (ntfy et/ou Telegram) uniquement au PASSAGE vers disponible.
 
 L'état est conservé dans state.json pour éviter une alerte toutes les heures.
-Usage : python monitor.py [--dry-run]
+Usage : python monitor.py [--dry-run] [--test-notif]
 """
 import json
 import os
@@ -20,7 +20,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -42,6 +42,14 @@ TG_CHAT = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 NOTIFY_BLOCKED = os.getenv("NOTIFY_BLOCKED", "0") == "1"  # alerte si un site reste bloqué trop longtemps
 BLOCKED_ALERT_AFTER = int(os.getenv("BLOCKED_ALERT_AFTER", "288"))  # 288 passages x 5 min = 24 h
 DRY_RUN = "--dry-run" in sys.argv
+TEST_NOTIF = "--test-notif" in sys.argv or os.getenv("TEST_NOTIF", "") in ("1", "true")
+
+# Modèles de lien « ajouter au panier » par enseigne. {id} = premier nombre du dernier segment de l'URL.
+# À VALIDER : un modèle faux mène simplement à une page d'erreur du site.
+CART_TEMPLATES = {
+    "1001hobbies": "https://www.1001hobbies.fr/panier?add=1&id_product={id}&qty=1",
+}
+CART_HINT = re.compile(r"(add[-_]?to[-_]?cart|addtocart|ajout[-_]?(au[-_]?)?panier|[?&]add=1\b|panier\?add|cart\?add)", re.I)
 
 HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -106,12 +114,14 @@ def load_urls():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        url, _, label = line.partition("|")
-        url = url.strip()
+        parts = [p.strip() for p in line.split("|", 2)]
+        url = parts[0]
+        label = parts[1] if len(parts) > 1 and parts[1] else label_for(url)
+        cart = parts[2] if len(parts) > 2 and parts[2] else None
         if url in seen:
             continue
         seen.add(url)
-        items.append((url, label.strip() or label_for(url)))
+        items.append((url, label, cart))
     return items
 
 
@@ -191,6 +201,32 @@ def structured_signals(soup):
     return [SCHEMA_MAP.get(norm_avail(a)) for a in avails if SCHEMA_MAP.get(norm_avail(a))], prices
 
 
+def find_cart_link(soup, base_url):
+    """Cherche dans la page un lien GET d'ajout au panier (formulaire GET ou lien <a>)."""
+    for form in soup.find_all("form"):
+        action = form.get("action") or ""
+        if (form.get("method") or "get").lower() != "get":
+            continue
+        if not (re.search(r"(panier|cart)", action, re.I) or CART_HINT.search(" ".join(form.get("class", [])))):
+            continue
+        params = {i.get("name"): i.get("value", "") for i in form.find_all("input") if i.get("name")}
+        if params:
+            return urljoin(base_url, action) + ("&" if "?" in action else "?") + urlencode(params)
+    for a in soup.find_all("a", href=True):
+        if CART_HINT.search(a["href"]):
+            return urljoin(base_url, a["href"])
+    return None
+
+
+def template_cart_link(url):
+    tpl = CART_TEMPLATES.get(retailer(url))
+    if not tpl:
+        return None
+    last = urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
+    m = re.search(r"\d{4,}", last)
+    return tpl.format(id=m.group(0)) if m else None
+
+
 def clean_dispo_hits(text):
     """Renvoie les extraits autour des « disponible » non niés."""
     hits = []
@@ -220,16 +256,17 @@ def text_signal(soup):
     return "INCONNU", extrait
 
 
-def analyze(html):
+def analyze(html, base_url=""):
     soup = BeautifulSoup(html, "html.parser")
+    cart = find_cart_link(soup, base_url)
     signals, prices = structured_signals(soup)
     price = min(prices) if prices else None
     if signals:
         for st in ("DISPO", "PRECOMMANDE", "INDISPO"):
             if st in signals:
-                return st, "schema", price
+                return st, "schema", price, cart
     status, source = text_signal(soup)
-    return status, source, price
+    return status, source, price, cart
 
 
 def check(url):
@@ -242,33 +279,35 @@ def check(url):
             last_exc = e
             time.sleep(3)
     else:
-        return "ERREUR", f"{type(last_exc).__name__}", None
+        return "ERREUR", f"{type(last_exc).__name__}", None, None
 
     if r.status_code in BLOCK_CODES:
-        return "BLOQUE", f"HTTP {r.status_code}", None
+        return "BLOQUE", f"HTTP {r.status_code}", None, None
     if r.status_code == 404:
-        return "ERREUR", "HTTP 404 (page retirée ?)", None
+        return "ERREUR", "HTTP 404 (page retirée ?)", None, None
     if r.status_code >= 400:
-        return "ERREUR", f"HTTP {r.status_code}", None
+        return "ERREUR", f"HTTP {r.status_code}", None, None
 
     html = r.text
-    status, source, price = analyze(html)
+    status, source, price, cart = analyze(html, str(r.url))
     if status == "INCONNU" and any(m in html.lower() for m in BLOCK_MARKERS):
-        return "BLOQUE", "anti-bot", None
-    return status, source, price
+        return "BLOQUE", "anti-bot", None, None
+    return status, source, price, cart
 
 
 # ---------------------------------------------------------------- notifications
-def notify(title, message, url):
+def notify(title, message, url, cart_url=None):
     if DRY_RUN:
-        print(f"  [DRY-RUN] {title} — {message}")
+        print(f"  [DRY-RUN] {title} — {message}" + (f" — panier : {cart_url}" if cart_url else ""))
         return
     sent = False
+    buttons = ([("🛒 Ajouter au panier", cart_url)] if cart_url else []) + [("Voir la page", url)]
     if NTFY_TOPIC:
         try:
             r = http.post(NTFY_SERVER, json={
                 "topic": NTFY_TOPIC, "title": title, "message": message,
-                "click": url, "priority": 5, "tags": ["rotating_light"],
+                "click": cart_url or url, "priority": 5, "tags": ["rotating_light"],
+                "actions": [{"action": "view", "label": lbl, "url": u, "clear": True} for lbl, u in buttons],
             }, timeout=15)
             sent |= r.status_code < 300
         except Exception as e:
@@ -276,8 +315,9 @@ def notify(title, message, url):
     if TG_TOKEN and TG_CHAT:
         try:
             r = http.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", json={
-                "chat_id": TG_CHAT, "text": f"{title}\n{message}\n{url}",
+                "chat_id": TG_CHAT, "text": f"{title}\n{message}",
                 "disable_web_page_preview": True,
+                "reply_markup": {"inline_keyboard": [[{"text": lbl, "url": u}] for lbl, u in buttons]},
             }, timeout=15)
             sent |= r.status_code < 300
         except Exception as e:
@@ -289,12 +329,20 @@ def notify(title, message, url):
 # ---------------------------------------------------------------- boucle
 def main():
     urls = load_urls()
+    if TEST_NOTIF:
+        url, label, cart = next(((u, l, c) for u, l, c in urls if c or template_cart_link(u)), urls[0])
+        cart = cart or template_cart_link(url)
+        notify(f"TEST — {retailer(url).upper()}", f"{label} — notification de test", url, cart)
+        print(f"Notification de test envoyée : {label}" + (f" (panier : {cart})" if cart else " (sans lien panier)"))
+        return
     state = load_state()
     rows = []
     print(f"Veille — {len(urls)} pages — {now_iso()}")
 
-    for i, (url, label) in enumerate(urls):
-        status, source, price = check(url)
+    for i, (url, label, cart_manual) in enumerate(urls):
+        status, source, price, cart_found = check(url)
+        cart_url = cart_manual or cart_found or template_cart_link(url)
+        cart_src = "manuel" if cart_manual else "détecté" if cart_found else "modèle" if cart_url else ""
         shop = retailer(url)
         prev = state.get(url, {})
         last_known = prev.get("last_known")
@@ -303,7 +351,7 @@ def main():
             if status in AVAILABLE and last_known not in AVAILABLE:
                 prix = f" — {price:.2f} €" if price else ""
                 verb = "en précommande" if status == "PRECOMMANDE" else "DISPONIBLE"
-                notify(f"{shop.upper()} : {verb}", f"{label}{prix}", url)
+                notify(f"{shop.upper()} : {verb}", f"{label}{prix}", url, cart_url)
             last_known = status
 
         blocked_streak = prev.get("blocked_streak", 0) + 1 if status == "BLOQUE" else 0
@@ -311,11 +359,11 @@ def main():
             notify(f"{shop.upper()} : bloqué depuis 24 h", label, url)
 
         state[url] = {
-            "label": label, "status": status, "source": source, "price": price,
+            "label": label, "status": status, "source": source, "price": price, "cart": cart_url,
             "last_known": last_known, "blocked_streak": blocked_streak, "checked": now_iso(),
         }
-        rows.append((shop, label, status, source, price))
-        print(f"  {status:<12} {shop:<14} {label}  [{source}]" + (f"  {price:.2f} €" if price else ""))
+        rows.append((shop, label, status, source, price, cart_src))
+        print(f"  {status:<12} {shop:<14} {label}  [{source}]" + (f"  {price:.2f} €" if price else "") + (f"  panier:{cart_src}" if cart_src else ""))
 
         if i < len(urls) - 1:
             time.sleep(random.uniform(1.5, 3.5))
@@ -328,10 +376,10 @@ def main():
     summary = os.getenv("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
-            f.write(f"### Veille stock — {now_iso()}\n\n| Statut | Enseigne | Produit | Source | Prix |\n|---|---|---|---|---|\n")
-            for shop, label, status, source, price in rows:
+            f.write(f"### Veille stock — {now_iso()}\n\n| Statut | Enseigne | Produit | Source | Prix | Lien panier |\n|---|---|---|---|---|---|\n")
+            for shop, label, status, source, price, cart_src in rows:
                 src = str(source).replace("|", "/")
-                f.write(f"| {status} | {shop} | {label} | {src} | {f'{price:.2f} €' if price else ''} |\n")
+                f.write(f"| {status} | {shop} | {label} | {src} | {f'{price:.2f} €' if price else ''} | {cart_src} |\n")
 
 
 if __name__ == "__main__":
