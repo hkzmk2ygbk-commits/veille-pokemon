@@ -59,3 +59,55 @@ https://www.1001hobbies.fr/jeux-de-cartes-a-jouer/892561-pokemon-company-bm-2588
 https://www.1001hobbies.fr/jeux-de-cartes-a-jouer/892555-pokemon-company-bm-258860-pokemon-30eme-anniversaire-collection-po-196214147225.html | Coffret Poster
 https://www.1001hobbies.fr/jeux-de-cartes-a-jouer/892557-pokemon-company-bm-258863-pokemon-30eme-anniversaire-tin-box-2-vi-196214146907.html | Tin box
 https://www.1001hobbies.fr/jeux-de-cartes-a-jouer/892560-pokemon-company-bm-258859-pokemon-30eme-anniversaire-collection-cl-196214145153.html | Collection (EAN 196214145153)
+
+# --- La Grande Récré
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-collection-poster-pokemon-30e-anniversaire.html | Coffret Poster
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-dresseur-d-elite-pokemon-30e-anniversaire.html | Coffret Dresseur d'Élite
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-4-boosters-nymphali-ex-pokemon-30e-anniversaire.html | Coffret Nymphali ex
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-4-boosters-amphinobi-ex-pokemon-30e-anniversaire.html | Coffret Amphinobi ex
+
+# --- Micromania
+https://www.micromania.fr/p/coffret-dresseur-d-elite-pokemon-30-ans-162654.html | Coffret Dresseur d'Élite
+
+# --- Amazon (désactivé : blocage anti-bot quasi certain, retire le # pour essayer)
+# https://www.amazon.fr/Pok%C3%A9mon-Anniversaire-enti%C3%A8rement-illustr%C3%A9e-Accessoires/dp/B0H8SVJL9F | Coffret Dresseur d'Élite
+
+# --- Boutiques spécialisées
+# Le robot filtre le prix : au-delà de +20 % du prix de référence, statut TROP_CHER et pas d'alerte.
+# Certaines limitent à 1 exemplaire par foyer ou vendent sur inscription.
+
+# Coffret Dresseur d'Élite
+https://www.ultrajeux.com/produit-32960-etb-coffret-dresseur-d-elite-pokemon-30e-anniversaire-0196214144835.html | Coffret Dresseur d'Élite
+https://www.philibertnet.com/fr/pokemon/181759-pokemon-30-ans-coffret-dresseur-d-elite-2100001405977.html | Coffret Dresseur d'Élite
+https://www.bcd-jeux.fr/pokemon-tcg/39006-pokemon-anniversaire-30-ans-coffret-etb-dresseur-d-elite-pokemon-196214144835.html | Coffret Dresseur d'Élite
+https://www.fantasysphere.net/product/coffret-dresseur-delite-etb-30e-anniversaire-me05-5-30c-pokemon-fr-10045771 | Coffret Dresseur d'Élite
+https://www.pokezenith.com/me055-30e-anniversaire/459-pokemon-coffret-dresseur-d-elite-etb-me055-30e-anniversaire-196214144835.html | Coffret Dresseur d'Élite
+https://plazatcg.com/etb/2184-pokemon-etb-coffret-dresseur-d-elite-30e-anniversaire-francais-196214144835.html | Coffret Dresseur d'Élite
+https://www.pokemoncarte.com/mega-evolution-30e-anniversaire/11663-pokemon-30-ans-coffret-dresseur-d-elite-30eme-anniversaire-0196214144835.html | Coffret Dresseur d'Élite
+https://lesgentlemendujeu.com/pokemon-30-ans-30eme-anniversaire/12617-pokemon-30-ans-coffret-dresseur-d-elite-etb-30eme-anniversaire-0196214144835.html | Coffret Dresseur d'Élite
+https://www.variantes.com/jcc-tcg-jeux-cartes-a-collectionner/60535-pokemon-etb-30-ans-0196214144835.html | Coffret Dresseur d'Élite
+https://www.destocktcg.fr/product/30e-anniversaire-coffret-dresseur-delite-etb-pokemon-fr-1750 | Coffret Dresseur d'Élite
+https://pokesumo.com/pokemon-jcc/15513-coffret-dresseur-d-elite-30-anniversaire-etb.html | Coffret Dresseur d'Élite
+
+# Coffret Nymphali ex
+https://www.bcd-jeux.fr/pokemon-tcg/39008-pokemon-anniversaire-30-ans-coffret-nymphaliex-0196214147102.html | Coffret Nymphali ex
+https://lesgentlemendujeu.com/pokemon-30-ans-30eme-anniversaire/12615-pokemon-30-ans-coffret-nymphali-ex-30eme-anniversaire-0196214147102.html | Coffret Nymphali ex
+https://en.destocktcg.fr/product/30e-anniversaire-coffret-nymphali-ex-pokemon-fr-1748 | Coffret Nymphali ex
+
+# Coffret Amphinobi ex
+https://www.philibertnet.com/fr/pokemon/182496-pokemon-30-ans-coffret-amphinobi-ex-196214147164.html | Coffret Amphinobi ex
+https://www.pokezenith.com/me055-30e-anniversaire/466-pokemon-coffret-me055-30e-anniversaire-amphinobi-ex-196214147164.html | Coffret Amphinobi ex
+https://plazatcg.com/coffret/2179-pokemon-coffret-30e-anniversaire-amphinobi-ex-francais-196214147164.html | Coffret Amphinobi ex
+https://www.poke-geek.fr/en-us/products/coffret-pokemon-30e-anniversaire-amphinobi-ex-francais | Coffret Amphinobi ex
+https://www.shopforgeek.com/fr/POKEMON-30EME-ANNIVERSAIRE-COFFRET-AMPHINOBI-EX-2-FR-258857.html | Coffret Amphinobi ex
+
+# Coffret Poster
+https://www.poke-geek.fr/en-us/products/collection-poster-pokemon-30e-anniversaire-francais | Coffret Poster
+https://plazatcg.com/coffret/2186-pokemon-coffret-collection-poster-30e-anniversaire-francais-196214147225.html | Coffret Poster
+https://www.pokezenith.com/me055-30e-anniversaire/463-pokemon-collection-poster-me055-30e-anniversaire-196214147225.html | Coffret Poster
+https://www.audemondujeu.com/article,pokemon-30ans-coffret-poster-collection-30-ans-8-12-12689.html | Coffret Poster
+https://www.red-line.shop/pokemon/693-pokemon-30th-celebration-poster-collection-fr-196214147225.html | Coffret Poster
+
+# Pack 2 boosters Évoli
+https://www.poke-geek.fr/en-us/products/pack-promotionnel-pokemon-30e-anniversaire-evoli-2-boosters-francais | Pack 2 boosters Évoli
+https://plazatcg.com/tripack-duopack/2185-pokemon-duopack-pack-promotionnel-de-2-boosters-30e-anniversaire-evoli-francais-196214152311.html | Pack 2 boosters Évoli
