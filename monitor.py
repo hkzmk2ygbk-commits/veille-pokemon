@@ -40,7 +40,14 @@ NTFY_SERVER = os.getenv("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
 TG_TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
 TG_CHAT = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 NOTIFY_BLOCKED = os.getenv("NOTIFY_BLOCKED", "0") == "1"  # alerte si un site reste bloqué trop longtemps
-BLOCKED_ALERT_AFTER = int(os.getenv("BLOCKED_ALERT_AFTER", "288"))  # 288 passages x 5 min = 24 h
+BLOCKED_ALERT_HOURS = float(os.getenv("BLOCKED_ALERT_HOURS", "24"))
+
+# Espacement des visites (anti-bot)
+PAUSE_MIN = float(os.getenv("PAUSE_MIN", "4"))      # secondes entre deux requêtes
+PAUSE_MAX = float(os.getenv("PAUSE_MAX", "7"))
+MIN_SITE_GAP = float(os.getenv("MIN_SITE_GAP", "30"))  # secondes minimum entre deux visites du même site
+TIME_BUDGET = float(os.getenv("TIME_BUDGET", "240"))  # au-delà, les pages restantes passent au tour suivant
+BACKOFF_MAX_MIN = 60                                  # page bloquée : 5, 10, 20, 40 puis 60 min entre deux essais
 DRY_RUN = "--dry-run" in sys.argv
 TEST_NOTIF = "--test-notif" in sys.argv or os.getenv("TEST_NOTIF", "") in ("1", "true")
 
@@ -355,21 +362,20 @@ def notify(title, message, url, cart_url=None):
 
 
 # ---------------------------------------------------------------- boucle
-def interleave(urls):
-    """Mélange l'ordre et alterne les enseignes pour éviter les rafales sur un même site."""
+def interleave(items):
+    """Répartit chaque enseigne régulièrement sur tout le tour, dans un ordre aléatoire.
+    items : liste de (position, (url, libellé, lien panier))."""
     groups = {}
-    for pos, item in enumerate(urls):
+    for pos, item in items:
         groups.setdefault(retailer(item[0]), []).append((pos, item))
-    queues = list(groups.values())
-    for q in queues:
-        random.shuffle(q)
-    random.shuffle(queues)
-    order = []
-    while any(queues):
-        for q in queues:
-            if q:
-                order.append(q.pop())
-    return order
+    keyed = []
+    for g in groups.values():
+        random.shuffle(g)
+        offset = random.random()
+        for k, entry in enumerate(g):
+            keyed.append(((k + offset) / len(g), random.random(), entry))
+    keyed.sort(key=lambda x: (x[0], x[1]))
+    return [entry for _, _, entry in keyed]
 
 
 def main():
@@ -382,11 +388,26 @@ def main():
         return
     state = load_state()
     rows = []
-    print(f"Veille — {len(urls)} pages — {now_iso()}")
+    now = time.time()
+    due, later = [], []
+    for pos, item in enumerate(urls):
+        (due if state.get(item[0], {}).get("next_check", 0) <= now else later).append((pos, item))
+    print(f"Veille — {len(due)} pages à vérifier, {len(later)} en pause anti-bot — {now_iso()}")
 
-    order = interleave(urls)
+    order = interleave(due)
+    start = time.monotonic()
+    visited = set()
+    last_visit = {}
     for i, (pos, (url, label, cart_manual)) in enumerate(order):
+        wait = MIN_SITE_GAP - (time.monotonic() - last_visit.get(retailer(url), -1e9))
+        if wait > 0:
+            time.sleep(wait)
+        if time.monotonic() - start > TIME_BUDGET:
+            print(f"  Budget de {TIME_BUDGET:.0f} s atteint : {len(order) - i} pages reportées au tour suivant")
+            break
+        last_visit[retailer(url)] = time.monotonic()
         status, source, price, cart_found = check(url)
+        visited.add(url)
         cart_url = cart_manual or cart_found or template_cart_link(url)
         cart_src = "manuel" if cart_manual else "détecté" if cart_found else "modèle" if cart_url else ""
         shop = retailer(url)
@@ -400,19 +421,39 @@ def main():
                 notify(f"{shop.upper()} : {verb}", f"{label}{prix}", url, cart_url)
             last_known = status
 
-        blocked_streak = prev.get("blocked_streak", 0) + 1 if status == "BLOQUE" else 0
-        if NOTIFY_BLOCKED and blocked_streak == BLOCKED_ALERT_AFTER:
-            notify(f"{shop.upper()} : bloqué depuis 24 h", label, url)
+        # Page bloquée : on espace les essais (5, 10, 20, 40, 60 min) pour ne pas insister
+        if status == "BLOQUE":
+            blocked_streak = prev.get("blocked_streak", 0) + 1
+            wait_min = min(5 * 2 ** (blocked_streak - 1), BACKOFF_MAX_MIN)
+            next_check = now + wait_min * 60 - 60  # relatif au début du tour
+            blocked_since = prev.get("blocked_since") or time.time()
+            blocked_alerted = prev.get("blocked_alerted", False)
+            if NOTIFY_BLOCKED and not blocked_alerted and time.time() - blocked_since >= BLOCKED_ALERT_HOURS * 3600:
+                notify(f"{shop.upper()} : bloqué depuis {BLOCKED_ALERT_HOURS:.0f} h", label, url)
+                blocked_alerted = True
+        else:
+            blocked_streak, next_check, blocked_since, blocked_alerted = 0, 0, None, False
 
         state[url] = {
             "label": label, "status": status, "source": source, "price": price, "cart": cart_url,
-            "last_known": last_known, "blocked_streak": blocked_streak, "checked": now_iso(),
+            "last_known": last_known, "blocked_streak": blocked_streak, "next_check": next_check,
+            "blocked_since": blocked_since, "blocked_alerted": blocked_alerted, "checked": now_iso(),
         }
-        rows.append((pos, shop, label, status, source, price, cart_src))
+        rows.append((pos, shop, label, status, source, price, cart_src, url, cart_url))
         print(f"  {status:<12} {shop:<14} {label}  [{source}]" + (f"  {price:.2f} €" if price else "") + (f"  panier:{cart_src}" if cart_src else ""))
 
         if i < len(order) - 1:
-            time.sleep(random.uniform(1.5, 3.5))
+            time.sleep(random.uniform(PAUSE_MIN, PAUSE_MAX))
+
+    # Pages non visitées ce tour-ci : on reprend leur dernier état pour le récapitulatif
+    for pos, (url, label, _) in enumerate(urls):
+        if url in visited:
+            continue
+        prev = state.get(url, {})
+        nc = prev.get("next_check", 0)
+        why = (f"en pause jusqu'à {datetime.fromtimestamp(nc, timezone.utc).strftime('%H:%M')} UTC"
+               if nc > now else "reportée (budget de temps)")
+        rows.append((pos, retailer(url), label, prev.get("status", "—"), why, None, "", url, prev.get("cart")))
 
     # purge des URL retirées de urls.txt
     active = {u for u, *_ in urls}
@@ -422,10 +463,12 @@ def main():
     summary = os.getenv("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
-            f.write(f"### Veille stock — {now_iso()}\n\n| Statut | Enseigne | Produit | Source | Prix | Lien panier |\n|---|---|---|---|---|---|\n")
-            for _, shop, label, status, source, price, cart_src in sorted(rows):
+            f.write(f"### Veille stock — {now_iso()}\n\n| Statut | Enseigne | Produit | Source | Prix | Page | Lien panier |\n|---|---|---|---|---|---|---|\n")
+            for _, shop, label, status, source, price, cart_src, url, cart_url in sorted(rows, key=lambda r: r[0]):
                 src = str(source).replace("|", "/")
-                f.write(f"| {status} | {shop} | {label} | {src} | {f'{price:.2f} €' if price else ''} | {cart_src} |\n")
+                page = f"[Ouvrir]({url})"
+                panier = f"[{cart_src or 'panier'}]({cart_url})" if cart_url else ""
+                f.write(f"| {status} | {shop} | {label} | {src} | {f'{price:.2f} €' if price else ''} | {page} | {panier} |\n")
 
 
 if __name__ == "__main__":
