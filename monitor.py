@@ -397,7 +397,7 @@ def main():
             time.sleep(random.uniform(1.5, 3.5))
 
     # purge des URL retirées de urls.txt
-    active = {u for u, _ in urls}
+    active = {u for u, *_ in urls}
     state = {u: v for u, v in state.items() if u in active}
     save_state(state)
 
