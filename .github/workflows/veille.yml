@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"   # toutes les 5 minutes (minimum accepté par GitHub)
   workflow_dispatch:       # bouton « Run workflow » pour tester
+    inputs:
+      test_notif:
+        description: "Envoyer seulement une notification de test (boutons compris)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -30,7 +35,9 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTIFY_BLOCKED: "0"
+          TEST_NOTIF: ${{ inputs.test_notif }}
       - name: Sauvegarde de l'état
+        if: ${{ !inputs.test_notif }}
         run: |
           git config user.name "veille-bot"
           git config user.email "veille-bot@users.noreply.github.com"
