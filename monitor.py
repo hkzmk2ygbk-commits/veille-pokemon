@@ -191,14 +191,14 @@ def structured_signals(soup):
 
 
 def clean_dispo_hits(text):
-    """Compte les « disponible » qui ne sont pas niés."""
-    hits = 0
+    """Renvoie les extraits autour des « disponible » non niés."""
+    hits = []
     for m in DISPO_RE.finditer(text):
         if m.group(1):  # « indisponible »
             continue
         if NEG_CONTEXT.search(text[max(0, m.start() - 30):m.start()]):
             continue
-        hits += 1
+        hits.append(text[max(0, m.start() - 30):m.end() + 20].strip())
     return hits
 
 
@@ -207,16 +207,16 @@ def text_signal(soup):
         t.decompose()
     root = soup.find("main") or soup.body or soup
     text = re.sub(r"\s+", " ", root.get_text(" ")).lower().replace("’", "'")
-    dispo = clean_dispo_hits(text)
+    hits = clean_dispo_hits(text)
     cart = any(p in text for p in ADD_TO_CART)
     neg = any(p in text for p in NEGATIVE_PHRASES)
+    extrait = f"texte : …{hits[0]}…" if hits else "texte"
     if neg and not cart:
-        return "INDISPO"
-    if dispo and cart:
-        return "DISPO"
-    if dispo and not neg:
-        return "DISPO"
-    return "INCONNU"
+        return "INDISPO", "texte"
+    # Sans bouton panier, « disponible » seul ne suffit plus (ex. « disponible en drive »)
+    if hits and cart:
+        return "DISPO", extrait
+    return "INCONNU", extrait
 
 
 def analyze(html):
@@ -227,7 +227,8 @@ def analyze(html):
         for st in ("DISPO", "PRECOMMANDE", "INDISPO"):
             if st in signals:
                 return st, "schema", price
-    return text_signal(soup), "texte", price
+    status, source = text_signal(soup)
+    return status, source, price
 
 
 def check(url):
@@ -328,7 +329,8 @@ def main():
         with open(summary, "a", encoding="utf-8") as f:
             f.write(f"### Veille stock — {now_iso()}\n\n| Statut | Enseigne | Produit | Source | Prix |\n|---|---|---|---|---|\n")
             for shop, label, status, source, price in rows:
-                f.write(f"| {status} | {shop} | {label} | {source} | {f'{price:.2f} €' if price else ''} |\n")
+                src = str(source).replace("|", "/")
+                f.write(f"| {status} | {shop} | {label} | {src} | {f'{price:.2f} €' if price else ''} |\n")
 
 
 if __name__ == "__main__":
