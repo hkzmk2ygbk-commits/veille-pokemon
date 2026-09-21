@@ -39,7 +39,8 @@ NTFY_TOPIC = os.getenv("NTFY_TOPIC", "").strip()
 NTFY_SERVER = os.getenv("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
 TG_TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
 TG_CHAT = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-NOTIFY_BLOCKED = os.getenv("NOTIFY_BLOCKED", "0") == "1"  # alerte si un site bloque 24 h d'affilée
+NOTIFY_BLOCKED = os.getenv("NOTIFY_BLOCKED", "0") == "1"  # alerte si un site reste bloqué trop longtemps
+BLOCKED_ALERT_AFTER = int(os.getenv("BLOCKED_ALERT_AFTER", "288"))  # 288 passages x 5 min = 24 h
 DRY_RUN = "--dry-run" in sys.argv
 
 HEADERS = {
@@ -306,7 +307,7 @@ def main():
             last_known = status
 
         blocked_streak = prev.get("blocked_streak", 0) + 1 if status == "BLOQUE" else 0
-        if NOTIFY_BLOCKED and blocked_streak == 24:
+        if NOTIFY_BLOCKED and blocked_streak == BLOCKED_ALERT_AFTER:
             notify(f"{shop.upper()} : bloqué depuis 24 h", label, url)
 
         state[url] = {
