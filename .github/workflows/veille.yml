@@ -2,7 +2,7 @@ name: Veille stock Pokémon
 
 on:
   schedule:
-    - cron: "7 * * * *"   # toutes les heures à hh:07 (UTC)
+    - cron: "*/5 * * * *"   # toutes les 5 minutes (minimum accepté par GitHub)
   workflow_dispatch:       # bouton « Run workflow » pour tester
 
 permissions:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
