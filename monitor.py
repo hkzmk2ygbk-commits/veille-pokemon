@@ -44,21 +44,23 @@ NOTIFY_BLOCKED = os.getenv("NOTIFY_BLOCKED", "0") == "1"  # alerte si un site re
 BLOCKED_ALERT_HOURS = float(os.getenv("BLOCKED_ALERT_HOURS", "24"))
 
 # Plafond de prix : au-delà de référence x (1 + tolérance), pas d'alerte (statut TROP_CHER)
-PRICE_TOLERANCE = float(os.getenv("PRICE_TOLERANCE", "0.20"))   # +20 % : pas d'alerte (TROP_CHER)
-EXCLUDE_TOLERANCE = float(os.getenv("EXCLUDE_TOLERANCE", "0.30")) # +30 % : site écarté (EXCLU), revu 1 fois / 24 h
+PRICE_TOLERANCE = float(os.getenv("PRICE_TOLERANCE", "0.35"))   # alerte jusqu'à +35 %
+EXCLUDE_TOLERANCE = float(os.getenv("EXCLUDE_TOLERANCE", "0.35")) # au-delà de +35 % : site écarté (EXCLU), revu 1 fois / 24 h
 EXCLUDE_RECHECK_H = 24
 # Grandes enseignes : alerte même si le prix est illisible. Ailleurs : pas d'alerte sans prix lisible.
 TRUSTED_RETAILERS = {"fnac", "cdiscount", "carrefour", "joueclub", "king-jouet", "smythstoys",
                      "coursesu", "1001hobbies", "micromania", "lagranderecre", "amazon"}
-# Prix de référence = prix le plus courant constaté dans les grandes enseignes. Clé = mot présent dans le libellé.
+# Prix de référence = prix officiels annoncés (tableau de sortie 30e anniversaire).
+# Clé = mot présent dans le libellé. Alerte jusqu'à +35 %, exclusion au-delà (seuils recalculés automatiquement).
 REFERENCE_PRICES = {
-    "dresseur": 64.99,      # Coffret Dresseur d'Élite  -> plafond 77,99 €
-    "poster": 29.99,        # Coffret Poster            -> plafond 35,99 €
-    "nymphali": 29.99,      # Coffret Nymphali ex       -> plafond 35,99 €
-    "amphinobi": 29.99,     # Coffret Amphinobi ex      -> plafond 35,99 €
-    "2 boosters": 14.99,    # Pack 2 boosters (Évoli)   -> plafond 17,99 €
-    "tin box": 26.99,       # Tin box                   -> plafond 32,39 €
-    "196214145153": 45.99,  # Collection                -> plafond 55,19 €
+    "dresseur": 55.99,      # ETB 30 ans              
+    "poster": 27.99,        # Poster Collection       
+    "nymphali": 27.99,      # Pokébox Nymphali        
+    "amphinobi": 27.99,     # Pokébox Amphinobi       
+    "2 boosters": 11.99,    # Duopack                 
+    "bundle": 35.99,        # Booster Bundle (6 boost.)
+    "196214145153": 49.99,  # Classeur Collection (hypothèse)
+    "tin box": 26.99,       # Tin box : pas de prix officiel dans le tableau, prix constaté conservé
 }
 
 # Espacement des visites (anti-bot)
