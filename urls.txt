@@ -1,17 +1,19 @@
 # Format : URL | libellé | lien panier
 # Libellé et lien panier facultatifs. Lignes # ignorées. Doublons ignorés.
 # Lien panier : s'il est absent, le script cherche un lien dans la page, puis un modèle par enseigne.
+# Ligne commençant par « ! » : page NON surveillée (site qui bloque toujours le robot),
+# mais affichée avec son lien dans le récapitulatif pour une vérification manuelle.
 
 # --- Fnac
-https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Poster/a23200285/w-4 | Coffret Poster
-https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Pack-2-boosters/a23200298/w-4 | Pack 2 boosters
-https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Nymphali-ex/a23200275/w-4 | Coffret Nymphali ex
-https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Dresseur-d-Elite/a23200296/w-4 | Coffret Dresseur d'Élite
-https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Amphinobi-ex/a23200310/w-4 | Coffret Amphinobi ex
+! https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Poster/a23200285/w-4 | Coffret Poster
+! https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Pack-2-boosters/a23200298/w-4 | Pack 2 boosters
+! https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Nymphali-ex/a23200275/w-4 | Coffret Nymphali ex
+! https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Dresseur-d-Elite/a23200296/w-4 | Coffret Dresseur d'Élite
+! https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Amphinobi-ex/a23200310/w-4 | Coffret Amphinobi ex
 
 # --- Cdiscount
-https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-30-ans-coffret-poster-30eme-anniversaire/f-120791604-pok196214147225.html | Coffret Poster
-https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-etb-coffret-dresseur-d-elite-30e-anniv/f-120791604-pok196214144835.html | Coffret Dresseur d'Élite
+! https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-30-ans-coffret-poster-30eme-anniversaire/f-120791604-pok196214147225.html | Coffret Poster
+! https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-etb-coffret-dresseur-d-elite-30e-anniv/f-120791604-pok196214144835.html | Coffret Dresseur d'Élite
 
 # --- Carrefour
 https://www.carrefour.fr/p/coffret-pokemon-nymphali-ex-30e-anniversaire-pokemon-0196214147102 | Coffret Nymphali ex
@@ -35,13 +37,13 @@ https://www.king-jouet.com/jeu-jouet/jeux-societes/cartes-a-collectionner/ref-10
 https://www.king-jouet.com/jeu-jouet/jeux-societes/cartes-a-collectionner/ref-1034916-pokemon-30-ans-coffret-dresseur-d-elite.htm | Coffret Dresseur d'Élite
 
 # --- Smyths
-https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-nymphali-ex-30eme-anniversaire/p/261788 | Coffret Nymphali ex
-https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-amphinobi-ex-30eme-anniversaire/p/261830 | Coffret Amphinobi ex
-https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-pack-2-boosters-30eme-anniversaire/p/261787 | Pack 2 boosters
-https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-collection-poster-30eme-anniversaire/p/261814 | Coffret Poster
-https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-dresseur-delite-30eme-anniversaire/p/261821 | Coffret Dresseur d'Élite
-https://www.smythstoys.com/fr/fr-fr/marques/pokemon/pokemon-bundle-6-boosters-30eme-anniversaire/p/261769 | Bundle 6 boosters
-https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-portfolio-avec-boosters-modele-aleatoire/p/261831 | Portfolio avec boosters
+! https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-nymphali-ex-30eme-anniversaire/p/261788 | Coffret Nymphali ex
+! https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-amphinobi-ex-30eme-anniversaire/p/261830 | Coffret Amphinobi ex
+! https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-pack-2-boosters-30eme-anniversaire/p/261787 | Pack 2 boosters
+! https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-collection-poster-30eme-anniversaire/p/261814 | Coffret Poster
+! https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-coffret-dresseur-delite-30eme-anniversaire/p/261821 | Coffret Dresseur d'Élite
+! https://www.smythstoys.com/fr/fr-fr/marques/pokemon/pokemon-bundle-6-boosters-30eme-anniversaire/p/261769 | Bundle 6 boosters
+! https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-portfolio-avec-boosters-modele-aleatoire/p/261831 | Portfolio avec boosters
 
 # --- Coursesu
 https://www.coursesu.com/p/coffret-ex-pokemon-asmodee/1833139.html | Coffret ex (réf. 1833139)
