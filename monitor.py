@@ -21,7 +21,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlencode, urljoin, urlparse
+from urllib.parse import unquote, urlencode, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -44,7 +44,9 @@ NOTIFY_BLOCKED = os.getenv("NOTIFY_BLOCKED", "0") == "1"  # alerte si un site re
 BLOCKED_ALERT_HOURS = float(os.getenv("BLOCKED_ALERT_HOURS", "24"))
 
 # Plafond de prix : au-delà de référence x (1 + tolérance), pas d'alerte (statut TROP_CHER)
-PRICE_TOLERANCE = float(os.getenv("PRICE_TOLERANCE", "0.20"))
+PRICE_TOLERANCE = float(os.getenv("PRICE_TOLERANCE", "0.20"))   # +20 % : pas d'alerte (TROP_CHER)
+EXCLUDE_TOLERANCE = float(os.getenv("EXCLUDE_TOLERANCE", "0.30")) # +30 % : site écarté (EXCLU), revu 1 fois / 24 h
+EXCLUDE_RECHECK_H = 24
 # Prix de référence = prix le plus courant constaté dans les grandes enseignes. Clé = mot présent dans le libellé.
 REFERENCE_PRICES = {
     "dresseur": 64.99,      # Coffret Dresseur d'Élite  -> plafond 77,99 €
@@ -85,7 +87,7 @@ if not FETCH_KW:
     )
 
 AVAILABLE = {"DISPO", "PRECOMMANDE"}
-KNOWN = {"DISPO", "PRECOMMANDE", "INDISPO", "TROP_CHER"}
+KNOWN = {"DISPO", "PRECOMMANDE", "INDISPO", "TROP_CHER", "EXCLU"}
 
 SCHEMA_MAP = {
     "instock": "DISPO",
@@ -136,12 +138,17 @@ def label_for(url):
     return re.sub(r"\.html?$", "", best)[:70]
 
 
-def price_cap(label):
+def ref_price(label):
     low = label.lower()
     for key, ref in REFERENCE_PRICES.items():
         if key in low:
-            return round(ref * (1 + PRICE_TOLERANCE), 2)
+            return ref
     return None
+
+
+def price_cap(label, tolerance=None):
+    ref = ref_price(label)
+    return round(ref * (1 + (PRICE_TOLERANCE if tolerance is None else tolerance)), 2) if ref else None
 
 
 def load_urls():
@@ -324,6 +331,9 @@ def analyze(html, base_url=""):
         for st in ("DISPO", "PRECOMMANDE", "INDISPO"):
             if st in signals:
                 return st, "schema", price, cart
+    # Page dont le contenu (prix, stock, bouton) est injecté par JavaScript : le texte brut est trompeur
+    if html.count("(=") > 10 or html.count("{{") > 20:
+        return "INCONNU", "page chargée en JavaScript (stock illisible)", price, cart
     status, source = text_signal(soup)
     return status, source, price, cart
 
@@ -346,6 +356,12 @@ def check(url):
         return "ERREUR", "HTTP 404 (page retirée ?)", None, None
     if r.status_code >= 400:
         return "ERREUR", f"HTTP {r.status_code}", None, None
+
+    # Redirection hors de la fiche produit (fiche retirée, renvoi vers une catégorie ou l'accueil)
+    asked, final = urlparse(url), urlparse(str(r.url))
+    seg = lambda u: unquote(u.path.rstrip("/").rsplit("/", 1)[-1]).lower()
+    if seg(final) != seg(asked):
+        return "ERREUR", f"redirigé vers {final.path[:50] or '/'} (fiche retirée ?)", None, None
 
     html = r.text
     status, source, price, cart = analyze(html, str(r.url))
@@ -418,7 +434,7 @@ def main():
     due, later = [], []
     for pos, item in enumerate(urls):
         (due if state.get(item[0], {}).get("next_check", 0) <= now else later).append((pos, item))
-    print(f"Veille — {len(due)} pages à vérifier, {len(later)} en pause anti-bot — {now_iso()}")
+    print(f"Veille — {len(due)} pages à vérifier, {len(later)} en pause (anti-bot, fiche retirée ou exclue) — {now_iso()}")
 
     # Rotation : chaque passage (toutes les 5 min) prend les 2/3 des pages, les plus anciennes d'abord,
     # soit une vérification toutes les 5 ou 10 min en alternance : 7,5 min en moyenne par page.
@@ -451,8 +467,14 @@ def main():
         last_known = prev.get("last_known")
 
         cap = price_cap(label)
-        if status in AVAILABLE and cap and price and price > cap:
+        excl = price_cap(label, EXCLUDE_TOLERANCE)
+        exclude = bool(excl and price and price > excl)
+        if exclude:
+            # Site trop cher (> +30 %) : écarté, revérifié une fois par jour au cas où le prix baisse
+            status, source = "EXCLU", f"{price:.2f} € > seuil d'exclusion {excl:.2f} €"
+        elif status in AVAILABLE and cap and price and price > cap:
             status, source = "TROP_CHER", f"{source} — plafond {cap:.2f} €"
+        redirected = status == "ERREUR" and str(source).startswith("redirigé")
 
         if status in KNOWN:
             if status in AVAILABLE and last_known not in AVAILABLE:
@@ -473,6 +495,10 @@ def main():
                 blocked_alerted = True
         else:
             blocked_streak, next_check, blocked_since, blocked_alerted = 0, 0, None, False
+            if exclude:
+                next_check = now + EXCLUDE_RECHECK_H * 3600
+            elif redirected:
+                next_check = now + 3600  # fiche retirée : on revérifie toutes les heures
 
         state[url] = {
             "label": label, "status": status, "source": source, "price": price, "cart": cart_url,
@@ -492,8 +518,13 @@ def main():
             continue
         prev = state.get(url, {})
         nc = prev.get("next_check", 0)
-        why = (f"en pause jusqu'à {datetime.fromtimestamp(nc, timezone.utc).strftime('%H:%M')} UTC"
-               if nc > now else f"au prochain passage (rotation {TARGET_INTERVAL_MIN:g} min)")
+        hhmm = datetime.fromtimestamp(nc, timezone.utc).strftime('%d/%m %H:%M') if nc else ""
+        if nc > now and prev.get("status") == "EXCLU":
+            why = f"{prev.get('source', 'trop cher')} — revu le {hhmm} UTC"
+        elif nc > now:
+            why = f"en pause jusqu'au {hhmm} UTC"
+        else:
+            why = f"au prochain passage (rotation {TARGET_INTERVAL_MIN:g} min)"
         rows.append((pos, retailer(url), label, prev.get("status", "—"), why, None, "", url, prev.get("cart")))
 
     # purge des URL retirées de urls.txt
