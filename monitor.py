@@ -169,7 +169,7 @@ def load_urls():
     items, seen = [], set()
     for line in URLS_FILE.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if not line or line.startswith("#"):
+        if not line or line.startswith("#") or line.startswith("!"):
             continue
         parts = [p.strip() for p in line.split("|", 2)]
         url = parts[0]
@@ -179,6 +179,19 @@ def load_urls():
             continue
         seen.add(url)
         items.append((url, label, cart))
+    return items
+
+
+def load_manual_urls():
+    """Pages marquées « ! » : jamais visitées, seulement listées dans le récapitulatif."""
+    items = []
+    for line in URLS_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line.startswith("!"):
+            continue
+        parts = [x.strip() for x in line[1:].split("|", 2)]
+        if parts[0]:
+            items.append((parts[0], parts[1] if len(parts) > 1 and parts[1] else label_for(parts[0])))
     return items
 
 
@@ -683,6 +696,12 @@ def main():
                 page = f"[Ouvrir]({url})"
                 panier = f"[{cart_src or 'panier'}]({cart_url})" if cart_url else ""
                 f.write(f"| {status} | {shop} | {label} | {src} | {f'{price:.2f} €' if price else ''} | {page} | {panier} |\n")
+            manual = load_manual_urls()
+            if manual:
+                f.write(f"\n### À vérifier toi-même ({len(manual)} pages non surveillées : sites qui bloquent le robot)\n\n"
+                        "| Enseigne | Produit | Page |\n|---|---|---|\n")
+                for url, label in manual:
+                    f.write(f"| {retailer(url)} | {label} | [Ouvrir]({url}) |\n")
 
 
 if __name__ == "__main__":
