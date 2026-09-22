@@ -53,14 +53,23 @@ TRUSTED_RETAILERS = {"fnac", "cdiscount", "carrefour", "joueclub", "king-jouet",
 # Prix de référence = prix officiels annoncés (tableau de sortie 30e anniversaire).
 # Clé = mot présent dans le libellé. Alerte jusqu'à +35 %, exclusion au-delà (seuils recalculés automatiquement).
 REFERENCE_PRICES = {
-    "dresseur": 55.99,      # ETB 30 ans              
-    "poster": 27.99,        # Poster Collection       
-    "nymphali": 27.99,      # Pokébox Nymphali        
-    "amphinobi": 27.99,     # Pokébox Amphinobi       
-    "2 boosters": 11.99,    # Duopack                 
-    "bundle": 35.99,        # Booster Bundle (6 boost.)
-    "196214145153": 49.99,  # Classeur Collection (hypothèse)
-    "tin box": 26.99,       # Tin box : pas de prix officiel dans le tableau, prix constaté conservé
+    "display 10 mini tins": 119.90,  # lot de 10 Mini Tins (10 x 11,99 €) -- avant « mini tin »
+    "mini tin": 11.99,       # Mini Tins
+    "dresseur": 55.99,       # ETB 30 ans
+    "poster": 27.99,         # Poster Collection
+    "nymphali": 27.99,       # Pokébox Nymphali
+    "amphinobi": 27.99,      # Pokébox Amphinobi
+    "2 boosters": 11.99,     # Duopack
+    "k.o": 12.99,            # Coffret K.O. Évoli
+    "autocollant": 19.99,    # Sticker Collection
+    "bundle": 35.99,         # Booster Bundle (6 boosters)
+    "classeur": 49.99,       # Classeur Collection
+    "196214145153": 49.99,   # Classeur Collection (hypothèse, 1001hobbies)
+    "deck combat": 19.99,    # Battle Decks Mentali / Noctali
+    "upc": 239.99,           # UPC Noctali / Mentali
+    "métamorph": 49.99,      # Métamorphe Premium Collection
+    "figurine": 49.99,       # Figurine Collection Mew / Mewtwo
+    "tin box": 26.99,        # Tin box : pas de prix officiel, prix constaté conservé
 }
 
 # Espacement des visites (anti-bot)
@@ -92,7 +101,7 @@ if not FETCH_KW:
     )
 
 AVAILABLE = {"DISPO", "PRECOMMANDE"}
-KNOWN = {"DISPO", "PRECOMMANDE", "INDISPO", "TROP_CHER", "EXCLU", "PRIX_INCONNU"}
+KNOWN = {"DISPO", "PRECOMMANDE", "INDISPO", "TROP_CHER", "EXCLU", "PRIX_INCONNU", "PRIX_SUSPECT"}
 
 SCHEMA_MAP = {
     "instock": "DISPO",
@@ -373,7 +382,57 @@ def coursesu_signal(soup):
 RETAILER_RULES = {"coursesu": coursesu_signal}
 
 
+# Mentions qui prouvent que la précommande / la vente n'est PAS ouverte
+CLOSED_STRONG = (
+    "prévenez-moi de l'ouverture", "me prévenir de l'ouverture", "m'avertir de l'ouverture",
+    "prévenez-moi à l'ouverture", "prix à venir", "précommandes fermées", "précommande fermée",
+    "précommandes closes", "inscription à la liste d'attente", "rejoindre la liste d'attente",
+    "précommande bientôt disponible", "précommandes bientôt",
+)
+# Mentions ambiguës : bloquantes seulement s'il n'y a aucun bouton d'achat actif
+CLOSED_WEAK = ("me prévenir", "prévenez-moi", "m'alerter", "être alerté", "bientôt disponible",
+               "rupture de stock", "épuisé", "indisponible")
+BUY_RE = re.compile(r"(ajouter (au|à mon) panier|pr[ée]-?commander|je pr[ée]commande|acheter maintenant)", re.I)
+
+
+def active_buy_button(soup):
+    """Vrai si la page contient un bouton d'achat / de précommande cliquable."""
+    for el in soup.find_all(["button", "input", "a"]):
+        label = el.get_text(" ", strip=True) if el.name != "input" else (el.get("value") or "")
+        if not BUY_RE.search(label or ""):
+            continue
+        cls = " ".join(el.get("class", [])).lower()
+        if el.has_attr("disabled") or el.get("aria-disabled") == "true" or re.search(r"disabled|inactive|unavailable|out-of-stock", cls):
+            continue
+        return True
+    return False
+
+
+def availability_guard(status, source, html):
+    """Contre-vérifie un statut DISPO / PRECOMMANDE avec le texte et les boutons de la page."""
+    if status not in AVAILABLE:
+        return status, source
+    soup = BeautifulSoup(html, "html.parser")
+    for t in soup(["script", "style", "noscript", "template", "svg"]):
+        t.decompose()
+    text = re.sub(r"\s+", " ", soup.get_text(" ")).lower().replace("’", "'")
+    for p in CLOSED_STRONG:
+        if p in text:
+            return "INDISPO", f"{source} — contredit par « {p} »"
+    if not active_buy_button(soup):
+        for p in CLOSED_WEAK:
+            if p in text:
+                return "INDISPO", f"{source} — pas de bouton d'achat actif, « {p} »"
+    return status, source
+
+
 def analyze(html, base_url=""):
+    status, source, price, cart = _analyze(html, base_url)
+    status, source = availability_guard(status, source, html)
+    return status, source, price, cart
+
+
+def _analyze(html, base_url=""):
     soup = BeautifulSoup(html, "html.parser")
     cart = find_cart_link(soup, base_url)
     rule = RETAILER_RULES.get(retailer(base_url)) if base_url else None
@@ -508,7 +567,8 @@ def main():
 
     # Rotation : chaque passage (toutes les 5 min) prend les 2/3 des pages, les plus anciennes d'abord,
     # soit une vérification toutes les 5 ou 10 min en alternance : 7,5 min en moyenne par page.
-    due.sort(key=lambda e: state.get(e[1][0], {}).get("checked", ""))
+    due.sort(key=lambda e: (not state.get(e[1][0], {}).get("priority", False),
+                            state.get(e[1][0], {}).get("checked", "")))
     quota = math.ceil(len(due) * RUN_INTERVAL_MIN / TARGET_INTERVAL_MIN)
     selected = due[:quota]
     print(f"  Rotation : {len(selected)} pages ce passage (objectif : chaque page toutes les {TARGET_INTERVAL_MIN:g} min)")
@@ -546,6 +606,15 @@ def main():
             status, source = "TROP_CHER", f"{source} — plafond {cap:.2f} €"
         elif status in AVAILABLE and cap and not price and shop not in TRUSTED_RETAILERS:
             status, source = "PRIX_INCONNU", f"{source} — prix illisible, pas d'alerte (vérifie via le lien)"
+        elif status == "PRECOMMANDE" and not price:
+            status, source = "PRIX_INCONNU", f"{source} — précommande sans prix affiché, pas d'alerte"
+        elif status in AVAILABLE and price and ref_price(label) and price < ref_price(label) * 0.5:
+            status, source = "PRIX_SUSPECT", f"{source} — {price:.2f} € anormalement bas (prix provisoire ?)"
+        # Détection par le texte seul : il faut 2 vérifications consécutives avant d'alerter
+        priority = False
+        if status in AVAILABLE and str(source).startswith("texte"):
+            if prev.get("status") != "A_CONFIRMER":
+                status, source, priority = "A_CONFIRMER", f"{source} — à confirmer au prochain passage", True
         redirected = status == "ERREUR" and str(source).startswith("redirigé")
 
         if status in KNOWN:
@@ -576,6 +645,7 @@ def main():
             "label": label, "status": status, "source": source, "price": price, "cart": cart_url,
             "last_known": last_known, "blocked_streak": blocked_streak, "next_check": next_check,
             "blocked_since": blocked_since, "blocked_alerted": blocked_alerted, "checked": now_iso(),
+            "priority": priority,
         }
         rows.append((pos, shop, label, status, source, price, cart_src, url, cart_url))
         print(f"  {status:<12} {shop:<14} {label}  [{source}]" + (f"  {price:.2f} €" if price else "") + (f"  panier:{cart_src}" if cart_src else ""))
