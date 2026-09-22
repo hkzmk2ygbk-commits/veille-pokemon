@@ -82,6 +82,7 @@ https://www.bcd-jeux.fr/pokemon-tcg/39006-pokemon-anniversaire-30-ans-coffret-et
 https://www.fantasysphere.net/product/coffret-dresseur-delite-etb-30e-anniversaire-me05-5-30c-pokemon-fr-10045771 | Coffret Dresseur d'Élite
 https://www.pokezenith.com/me055-30e-anniversaire/459-pokemon-coffret-dresseur-d-elite-etb-me055-30e-anniversaire-196214144835.html | Coffret Dresseur d'Élite
 https://plazatcg.com/etb/2184-pokemon-etb-coffret-dresseur-d-elite-30e-anniversaire-francais-196214144835.html | Coffret Dresseur d'Élite
+https://www.pokemoncarte.com/mega-evolution-30e-anniversaire/11663-pokemon-30-ans-coffret-dresseur-d-elite-30eme-anniversaire-0196214144835.html | Coffret Dresseur d'Élite
 https://lesgentlemendujeu.com/pokemon-30-ans-30eme-anniversaire/12617-pokemon-30-ans-coffret-dresseur-d-elite-etb-30eme-anniversaire-0196214144835.html | Coffret Dresseur d'Élite
 https://www.variantes.com/jcc-tcg-jeux-cartes-a-collectionner/60535-pokemon-etb-30-ans-0196214144835.html | Coffret Dresseur d'Élite
 https://www.destocktcg.fr/product/30e-anniversaire-coffret-dresseur-delite-etb-pokemon-fr-1750 | Coffret Dresseur d'Élite
@@ -108,3 +109,46 @@ https://www.red-line.shop/pokemon/693-pokemon-30th-celebration-poster-collection
 # Pack 2 boosters Évoli
 https://www.poke-geek.fr/en-us/products/pack-promotionnel-pokemon-30e-anniversaire-evoli-2-boosters-francais | Pack 2 boosters Évoli
 https://plazatcg.com/tripack-duopack/2185-pokemon-duopack-pack-promotionnel-de-2-boosters-30e-anniversaire-evoli-francais-196214152311.html | Pack 2 boosters Évoli
+
+# ======================================================================
+# Nouveaux produits 30e anniversaire (précommandes incluses)
+# Sorties : Bundle + Mini Tins 02/10 · Decks Combat 30/10 · UPC, Métamorph, Figurines 06/11
+# ======================================================================
+
+# Booster Bundle (6 boosters)
+https://www.destocktcg.fr/product/30e-anniversaire-bundle-6-boosters-pokemon-fr-1756 | Bundle 6 boosters
+https://www.play-in.com/fr/produit/659626/bundle-6-boosters-30-ans-pokemon-fr | Bundle 6 boosters
+https://pokesumo.com/pokemon-jcc/15536-bundle-6-boosters-30-anniversaire.html | Bundle 6 boosters
+https://www.wikitcg.fr/produit/pokemon-bundle-6-boosters-30e-anniversaire-fr/ | Bundle 6 boosters
+
+# Mini Tins (visuel aléatoire)
+https://www.destocktcg.fr/product/30e-anniversaire-mini-tin-jour-nuit-pokemon-fr-1757 | Mini Tin Jour & Nuit
+https://snooop.gg/products/a-paraitre-mini-tin-pokemon-30e-anniversaire | Mini Tin Jour & Nuit
+https://www.hamacards.com/produit/mini-tin-pokemon-30e-anniversaire-francais/ | Mini Tin Jour & Nuit
+https://card-binder.com/fr/products/pokemon-30eme-anniversaire-mini-boite | Mini Tin Jour & Nuit
+https://lamaisondutcg.com/en/p/pokemon-mini-tin-30-ans-precommande | Mini Tin Jour & Nuit
+https://www.destocktcg.fr/product/30e-anniversaire-display-scellee-de-10-mini-tins-pokemon-fr-1758 | Display 10 Mini Tins
+
+# Coffret K.O. Évoli
+https://www.destocktcg.fr/product/30e-anniversaire-collection-k-o-evoli-pokemon-fr-1754 | Coffret K.O. Évoli
+https://www.play-in.com/fr/produit/659418/collection-k-o-30-ans-evoli-pokemon-fr | Coffret K.O. Évoli
+https://www.pokezenith.com/me055-30e-anniversaire/462-pokemon-collection-ko-me055-30e-anniversaire-evoli.html | Coffret K.O. Évoli
+https://www.hamacards.com/produit/pack-pokemon-collection-ko-evoli-30e-anniversaire-francais/ | Coffret K.O. Évoli
+
+# Battle Decks Mentali / Noctali (visuel aléatoire)
+https://www.pokezenith.com/me055-30e-anniversaire/473-pokemon-deck-combat-me055-30e-anniversaire-mentali-ex-noctali-ex.html | Deck Combat Mentali / Noctali
+
+# UPC Noctali / Mentali
+https://www.destocktcg.fr/product/30e-anniversaire-coffret-ultra-premium-soiree-noctali-ex-pokemon-fr-1761 | UPC Noctali
+https://www.play-in.com/fr/produit/659645/coffret-collection-ultra-premium-30-ans-soiree-noctali-pokemon-fr | UPC Noctali
+https://www.fantasysphere.net/product/coffret-30-boosters-collection-ultra-premium-nuit-noctali-ex-30e-anniversaire-me05-5-30c-pokemon-fr-10045777 | UPC Noctali
+https://www.hamacards.com/produit/coffret-pokemon-collection-ultra-premium-upc-noctali-ex-30e-anniversaire-francais/ | UPC Noctali
+https://hikarudistribution.com/products/upc-noctali-collection-ultra-premium-30eme-anniversaire-francais | UPC Noctali
+https://lorenzone.fr/products/coffret-ultra-premium-upc-30eme-anniversaire | UPC Mentali / Noctali
+
+# Métamorphe Premium Collection
+https://www.destocktcg.fr/product/30e-anniversaire-coffret-premium-metamorph-pokemon-fr-1762 | Métamorph Premium Collection
+
+# Figurine Collection Mew / Mewtwo
+https://www.destocktcg.fr/product/30e-anniversaire-coffret-figurine-mew-pokemon-fr-1763 | Figurine Collection Mew
+https://www.destocktcg.fr/product/30e-anniversaire-coffret-figurine-mewtwo-pokemon-fr-1764 | Figurine Collection Mewtwo
