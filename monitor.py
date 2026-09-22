@@ -47,6 +47,9 @@ BLOCKED_ALERT_HOURS = float(os.getenv("BLOCKED_ALERT_HOURS", "24"))
 PRICE_TOLERANCE = float(os.getenv("PRICE_TOLERANCE", "0.20"))   # +20 % : pas d'alerte (TROP_CHER)
 EXCLUDE_TOLERANCE = float(os.getenv("EXCLUDE_TOLERANCE", "0.30")) # +30 % : site écarté (EXCLU), revu 1 fois / 24 h
 EXCLUDE_RECHECK_H = 24
+# Grandes enseignes : alerte même si le prix est illisible. Ailleurs : pas d'alerte sans prix lisible.
+TRUSTED_RETAILERS = {"fnac", "cdiscount", "carrefour", "joueclub", "king-jouet", "smythstoys",
+                     "coursesu", "1001hobbies", "micromania", "lagranderecre", "amazon"}
 # Prix de référence = prix le plus courant constaté dans les grandes enseignes. Clé = mot présent dans le libellé.
 REFERENCE_PRICES = {
     "dresseur": 64.99,      # Coffret Dresseur d'Élite  -> plafond 77,99 €
@@ -87,7 +90,7 @@ if not FETCH_KW:
     )
 
 AVAILABLE = {"DISPO", "PRECOMMANDE"}
-KNOWN = {"DISPO", "PRECOMMANDE", "INDISPO", "TROP_CHER", "EXCLU"}
+KNOWN = {"DISPO", "PRECOMMANDE", "INDISPO", "TROP_CHER", "EXCLU", "PRIX_INCONNU"}
 
 SCHEMA_MAP = {
     "instock": "DISPO",
@@ -221,6 +224,50 @@ def _walk_offers(node, avails, prices):
             _walk_offers(x, avails, prices)
 
 
+PRICE_RE = re.compile(r"(\d{1,4}(?:[ \u00a0.]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|eur)", re.I)
+
+
+def parse_price(value):
+    """'199,00 €' / '1 199.99' / 64.99 -> float, ou None."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if value > 0 else None
+    txt = str(value).replace("\u00a0", " ").strip()
+    m = re.search(r"\d[\d .,]*", txt)
+    if not m:
+        return None
+    num = m.group(0).strip().replace(" ", "")
+    if "," in num and "." in num:
+        num = num.replace(".", "").replace(",", ".") if num.rfind(",") > num.rfind(".") else num.replace(",", "")
+    else:
+        num = num.replace(",", ".")
+        if num.count(".") > 1:
+            head, _, tail = num.rpartition(".")
+            num = head.replace(".", "") + "." + tail
+    try:
+        v = float(num)
+        return v if 0 < v < 10000 else None
+    except ValueError:
+        return None
+
+
+def visible_price(soup):
+    """Dernier recours : premier prix affiché dans un élément « price/prix » (hors ancien prix barré)."""
+    for el in soup.select('[class*="price"], [class*="prix"], [id*="price"], [id*="prix"]'):
+        marks = " ".join(el.get("class", [])) + " " + (el.get("id") or "")
+        if re.search(r"old|regular|barr|strike|was|before|ancien|unit", marks, re.I):
+            continue
+        if el.find_parent(["s", "del", "strike"]):
+            continue
+        m = PRICE_RE.search(el.get_text(" ", strip=True))
+        if m:
+            v = parse_price(m.group(1))
+            if v:
+                return v
+    return None
+
+
 def structured_signals(soup):
     avails, prices = [], []
     for s in soup.find_all("script", type="application/ld+json"):
@@ -241,6 +288,14 @@ def structured_signals(soup):
         m = soup.find("meta", attrs={"property": prop})
         if m and m.get("content"):
             avails.append(m["content"])
+    # Prix hors JSON-LD : microdonnées et balises meta
+    for tag in soup.select('[itemprop="price"], [itemprop="lowPrice"]'):
+        prices.append(tag.get("content") or tag.get_text(" ", strip=True))
+    for prop in ("product:price:amount", "og:price:amount"):
+        m = soup.find("meta", attrs={"property": prop})
+        if m and m.get("content"):
+            prices.append(m["content"])
+    prices = [v for v in (parse_price(p) for p in prices) if v]
     return [SCHEMA_MAP.get(norm_avail(a)) for a in avails if SCHEMA_MAP.get(norm_avail(a))], prices
 
 
@@ -326,7 +381,7 @@ def analyze(html, base_url=""):
         status, source = rule(soup)
         return status, source, None, cart
     signals, prices = structured_signals(soup)
-    price = min(prices) if prices else None
+    price = min(prices) if prices else visible_price(soup)
     if signals:
         for st in ("DISPO", "PRECOMMANDE", "INDISPO"):
             if st in signals:
@@ -378,15 +433,25 @@ def notify(title, message, url, cart_url=None):
     sent = False
     buttons = ([("🛒 Ajouter au panier", cart_url)] if cart_url else []) + [("Voir la page", url)]
     if NTFY_TOPIC:
-        try:
-            r = http.post(NTFY_SERVER, json={
-                "topic": NTFY_TOPIC, "title": title, "message": message,
-                "click": cart_url or url, "priority": 5, "tags": ["rotating_light"],
-                "actions": [{"action": "view", "label": lbl, "url": u, "clear": True} for lbl, u in buttons],
-            }, timeout=15)
-            sent |= r.status_code < 300
-        except Exception as e:
-            print(f"  ! ntfy : {e}")
+        payload = {
+            "topic": NTFY_TOPIC, "title": title, "message": message,
+            "click": cart_url or url, "priority": 5, "tags": ["rotating_light"],
+            "actions": [{"action": "view", "label": lbl, "url": u, "clear": True} for lbl, u in buttons],
+        }
+        for attempt in ("avec boutons", "sans boutons"):
+            if attempt == "sans boutons":
+                payload.pop("actions", None)
+            try:
+                r = http.post(NTFY_SERVER, json=payload, timeout=15)
+                if r.status_code < 300:
+                    print(f"  ntfy : envoyé ({attempt}, HTTP {r.status_code})")
+                    sent = True
+                    break
+                print(f"  ! ntfy refusé ({attempt}) : HTTP {r.status_code} — {r.text[:200]}")
+                if r.status_code == 429:
+                    break  # quota ntfy.sh atteint : inutile de réessayer
+            except Exception as e:
+                print(f"  ! ntfy ({attempt}) : {type(e).__name__} {e}")
     if TG_TOKEN and TG_CHAT:
         try:
             r = http.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", json={
@@ -394,11 +459,14 @@ def notify(title, message, url, cart_url=None):
                 "disable_web_page_preview": True,
                 "reply_markup": {"inline_keyboard": [[{"text": lbl, "url": u}] for lbl, u in buttons]},
             }, timeout=15)
-            sent |= r.status_code < 300
+            ok = r.status_code < 300
+            sent |= ok
+            print(f"  telegram : {'envoyé' if ok else 'refusé'} (HTTP {r.status_code})" + ("" if ok else f" — {r.text[:200]}"))
         except Exception as e:
             print(f"  ! telegram : {e}")
     if not sent:
-        print("  ! aucune notification envoyée (NTFY_TOPIC / TELEGRAM_* non configurés ?)")
+        print("  ! AUCUNE notification envoyée" + ("" if (NTFY_TOPIC or TG_TOKEN) else " : secret NTFY_TOPIC absent ou vide"))
+    return sent
 
 
 # ---------------------------------------------------------------- boucle
@@ -474,6 +542,8 @@ def main():
             status, source = "EXCLU", f"{price:.2f} € > seuil d'exclusion {excl:.2f} €"
         elif status in AVAILABLE and cap and price and price > cap:
             status, source = "TROP_CHER", f"{source} — plafond {cap:.2f} €"
+        elif status in AVAILABLE and cap and not price and shop not in TRUSTED_RETAILERS:
+            status, source = "PRIX_INCONNU", f"{source} — prix illisible, pas d'alerte (vérifie via le lien)"
         redirected = status == "ERREUR" and str(source).startswith("redirigé")
 
         if status in KNOWN:
